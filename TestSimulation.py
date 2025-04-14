@@ -24,7 +24,6 @@ def preProcessing(img):
 
     return img
 
-
 @sio.on('telemetry')
 def telemetry(sid, data):
     speed = float(data['speed'])
@@ -33,16 +32,14 @@ def telemetry(sid, data):
     image = preProcessing(image)
     image = np.array([image])
     steering = float(model.predict(image))
-    throttle = 1.0 - speed/maxSpeed
-    print(f'{throttle}, {steering}, {speed}')
+    throttle = max(0.0, 1.0 - speed/maxSpeed)
+    print(f'Throttle: {throttle}, Steering: {steering}, Speed: {speed}')
     sendControl(steering, throttle)
-
 
 @sio.on('connect')
 def connect(sid, environ):
     print('Connected')
     sendControl(0, 0)
-
 
 def sendControl(steering, throttle):
     sio.emit('steer', data={
@@ -51,6 +48,6 @@ def sendControl(steering, throttle):
     })
 
 if __name__ == "__main__":
-    model = load_model('model.h5')
+    model = load_model('steering_model.h5')
     app = socketio.Middleware(sio, app)
     eventlet.wsgi.server(eventlet.listen(('', 4567)), app)

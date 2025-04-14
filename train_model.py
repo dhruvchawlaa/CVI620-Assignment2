@@ -24,7 +24,13 @@ def train_model():
         validation_steps=len(val_data) // batch_size
     )
 
-    model.save('model.h5')
+    model.save('steering_model.h5')
+    
+    # Print final loss values for evaluation
+    final_train_loss = history.history['loss'][-1]
+    final_val_loss = history.history['val_loss'][-1]
+    print(f'Final Training Loss: {final_train_loss}')
+    print(f'Final Validation Loss: {final_val_loss}')
     
     plt.figure(figsize=(10, 8))
     plt.plot(history.history['loss'], label='Train Loss')
