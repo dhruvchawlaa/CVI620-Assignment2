@@ -14,10 +14,12 @@ This project develops a neural network model to control a self-driving car by pr
 
 ### Project Structure
 - **Driving Log Data/**: Contains the dataset (`driving_log.csv` and `IMG/` folder) collected from the simulator.
+- **data_augmentation.py**: Augments images with transformations like flipping and brightness adjustment.
+- **data_preprocessing.py**: Loads, processes, and augments data.
 - **plot_steering_histogram.py**: Script to plot the histogram of steering angles for dataset review.
 - **steering_histogram.png**: Generated histogram of steering angles.
-- **self_driving_car.py**: Main script for preprocessing, augmentation, training, and plotting training loss.
 - **TestSimulation.py**: Script to test the trained model in the simulator.
+- **train_model.py**: Trains the model using augmented data.
 - **demo.mp4**: Screen recording of the trained model running in the simulator.
 - **README.md**: Project documentation.
 
