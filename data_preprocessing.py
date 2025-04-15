@@ -1,116 +1,102 @@
-import pandas as pd
-import numpy as np
 import cv2
-import random
 import os
+import numpy as np
+import matplotlib.image as mpimg
 
-def fix_path(path):
-    path = str(path)
-    path = path.replace('\\', '/')
-    tail = path.split('/')[-1]
-    img_path = os.path.join('Driving Log Data', 'IMG', tail)
-    return img_path
+IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 160, 320, 3
+INPUT_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
 
-def augment_data(img, steering):
-    # Flipping (50% chance)
+def load_image(data_dir, image_file):
+    image_path = os.path.join(data_dir, image_file.strip().replace('\\', '/'))
+    return mpimg.imread(image_path)
+
+def crop(image):
+    return image[60:-25, :, :]
+
+def resize(image):
+    return cv2.resize(image, (IMAGE_WIDTH, IMAGE_HEIGHT), cv2.INTER_AREA)
+
+def rgb2yuv(image):
+    return cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+
+def preprocess(image):
+    image = crop(image)
+    image = resize(image)
+    image = rgb2yuv(image)
+    return image
+
+def choose_image(data_dir, center, left, right, steering_angle):
+    choice = np.random.choice(3)
+    if choice == 0:
+        return load_image(data_dir, left), steering_angle + 0.2
+    elif choice == 1:
+        return load_image(data_dir, right), steering_angle - 0.2
+    return load_image(data_dir, center), steering_angle
+
+def random_flip(image, steering_angle):
     if np.random.rand() < 0.5:
-        img = cv2.flip(img, 1)  # Horizontal flip
-        steering = -steering    # Reverse steering angle
-    # Brightness adjustment (50% chance)
-    if np.random.rand() < 0.5:
-        img = img * 255.0
-        img = cv2.convertScaleAbs(img, beta=np.random.uniform(-0.2, 0.2) * 255)
-        img = img / 255.0
-    # Zooming (50% chance)
-    if np.random.rand() < 0.5:
-        scale = np.random.uniform(0.8, 1.2)  # Zoom in/out by 80%-120%
-        h, w = img.shape[:2]
-        new_h, new_w = int(h * scale), int(w * scale)
-        img = cv2.resize(img, (new_w, new_h))
-        if scale > 1:
-            start_h = (new_h - h) // 2
-            start_w = (new_w - w) // 2
-            img = img[start_h:start_h + h, start_w:start_w + w]
-        else:
-            pad_h = (h - new_h) // 2
-            pad_w = (w - new_w) // 2
-            img = cv2.copyMakeBorder(img, pad_h, h - new_h - pad_h, pad_w, w - new_w - pad_w, cv2.BORDER_CONSTANT, value=0)
-    # Panning (50% chance)
-    if np.random.rand() < 0.5:
-        max_shift = 10  # Max pixel shift
-        dx = np.random.randint(-max_shift, max_shift)
-        dy = np.random.randint(-max_shift, max_shift)
-        M = np.float32([[1, 0, dx], [0, 1, dy]])
-        img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), borderValue=0)
-    # Rotation (50% chance)
-    if np.random.rand() < 0.5:
-        angle = np.random.uniform(-5, 5)  # Rotate between -5 and 5 degrees
-        h, w = img.shape[:2]
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        img = cv2.warpAffine(img, M, (w, h), borderValue=0)
-    return img, steering
+        image = cv2.flip(image, 1)
+        steering_angle = -steering_angle
+    return image, steering_angle
 
-def load_data(csv_path='Driving Log Data/driving_log.csv'):
-    columns = ['center', 'left', 'right', 'steering', 'throttle', 'brake', 'speed']
-    data = pd.read_csv(csv_path, names=columns)
-    
-    data['center'] = data['center'].apply(fix_path)
+def random_translate(image, steering_angle, range_x=100, range_y=10):
+    trans_x = range_x * (np.random.rand() - 0.5)
+    trans_y = range_y * (np.random.rand() - 0.5)
+    steering_angle += trans_x * 0.002
+    trans_m = np.float32([[1, 0, trans_x], [0, 1, trans_y]])
+    height, width = image.shape[:2]
+    image = cv2.warpAffine(image, trans_m, (width, height))
+    return image, steering_angle
 
-    # Ensure steering column is numeric, any errors to NaN
-    data['steering'] = pd.to_numeric(data['steering'], errors='coerce')
+def random_shadow(image):
+    x1, y1 = IMAGE_WIDTH * np.random.rand(), 0
+    x2, y2 = IMAGE_WIDTH * np.random.rand(), IMAGE_HEIGHT
+    xm, ym = np.mgrid[0:IMAGE_HEIGHT, 0:IMAGE_WIDTH]
+    mask = np.zeros_like(image[:, :, 1])
+    mask[(ym - y1) * (x2 - x1) - (y2 - y1) * (xm - x1) > 0] = 1
+    cond = mask == np.random.randint(2)
+    s_ratio = np.random.uniform(low=0.2, high=0.5)
+    hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    hls[:, :, 1][cond] = hls[:, :, 1][cond] * s_ratio
+    return cv2.cvtColor(hls, cv2.COLOR_HLS2RGB)
 
-    # Drop rows where steering value is NaN 
-    data = data.dropna(subset=['steering'])
-    
-    print(f'Total Images Loaded: {len(data)}')
-    return data
+def random_brightness(image):
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    ratio = 1.0 + 0.4 * (np.random.rand() - 0.5)
+    hsv[:, :, 2] = hsv[:, :, 2] * ratio
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
 
-def preProcessing(img):
-    img = img[60:135, :, :]  # Crop the image
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)  # Convert to YUV color space
-    img = cv2.GaussianBlur(img, (3, 3), 0)  # Apply Gaussian blur
-    img = cv2.resize(img, (200, 66))  # Resize to 200x66 pixels
-    img = img / 255  # Normalize the image
-    return img
+def augment(data_dir, center, left, right, steering_angle, range_x=100, range_y=10):
+    """
+    Generate an augmented image, with bias toward right turns if steering is near zero.
+    """
+    # Increase chance of right-turn augmentation for straight driving
+    if abs(steering_angle) < 0.1 and np.random.rand() < 0.3:  # 30% chance for near-straight
+        image = load_image(data_dir, right)
+        steering_angle = steering_angle - 0.2  # Simulate right turn
+    else:
+        image, steering_angle = choose_image(data_dir, center, left, right, steering_angle)
+    image, steering_angle = random_flip(image, steering_angle)
+    image, steering_angle = random_translate(image, steering_angle, range_x, range_y)
+    image = random_shadow(image)
+    image = random_brightness(image)
+    return image, steering_angle
 
-def load_img(path):
-    if not os.path.exists(path):
-        print(f"Error: Image file doesn't exist: {path}")
-        return None
-    
-    img = cv2.imread(path)
-    if img is None:
-        print(f"Error: Could not load image at {path}")
-        return None
-    
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
-    img = preProcessing(img)
-    return img
-
-def batch_generator(data, batch_size=32, training=True):
+def batch_generator(data_dir, image_paths, steering_angles, batch_size, is_training):
+    images = np.empty([batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
+    steers = np.empty(batch_size)
     while True:
-        data = data.sample(frac=1)  
-        
-        for i in range(0, len(data), batch_size):
-            batch_data = data.iloc[i:i + batch_size]
-            
-            images = []
-            steerings = []
-            
-            for _, row in batch_data.iterrows():
-                img = load_img(row['center'])
-                if img is None:
-                    continue  # Skip if image fails to load
-                steering = float(row['steering'])
-                
-                if training and random.random() > 0.5:
-                    img, steering = augment_data(img, steering)  
-                
-                images.append(img)
-                steerings.append(steering)
-            
-            X = np.array(images)
-            y = np.array(steerings)
-            
-            yield X, y
+        i = 0
+        for index in np.random.permutation(image_paths.shape[0]):
+            center, left, right = image_paths[index]
+            steering_angle = steering_angles[index]
+            if is_training and np.random.rand() < 0.6:
+                image, steering_angle = augment(data_dir, center, left, right, steering_angle)
+            else:
+                image = load_image(data_dir, center)
+            images[i] = preprocess(image)
+            steers[i] = steering_angle
+            i += 1
+            if i == batch_size:
+                break
+        yield images, steers

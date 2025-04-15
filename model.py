@@ -1,26 +1,21 @@
-from tensorflow.keras import layers, models
+from keras.models import Sequential
+from keras.layers import Lambda, Conv2D, Dropout, Dense, Flatten
+from data_preprocessing import INPUT_SHAPE
 
-def create_model():
-    model = models.Sequential()
-
-    # Normalization layer (scale to [-0.5, 0.5] assuming input is [0, 1])
-    model.add(layers.Lambda(lambda x: (x - 0.5), input_shape=(66, 200, 3)))
-    
-    # Convolutional layers
-    model.add(layers.Conv2D(24, (5, 5), strides=(2, 2), activation='relu'))
-    model.add(layers.Conv2D(36, (5, 5), strides=(2, 2), activation='relu'))
-    model.add(layers.Conv2D(48, (5, 5), strides=(2, 2), activation='relu'))
-    model.add(layers.Conv2D(64, (3, 3), strides=(1, 1), activation='relu'))
-    model.add(layers.Conv2D(64, (3, 3), strides=(1, 1), activation='relu'))
-
-    # Flatten and fully connected layers
-    model.add(layers.Flatten())
-    model.add(layers.Dense(1164, activation='relu'))
-    model.add(layers.Dense(100, activation='relu'))
-    model.add(layers.Dense(50, activation='relu'))
-    model.add(layers.Dense(10, activation='relu'))
-    model.add(layers.Dense(1)) 
-    
-    model.compile(optimizer='adam', loss='mse')
-    
+def build_model():
+    model = Sequential([
+        Lambda(lambda x: x / 127.5 - 1.0, input_shape=INPUT_SHAPE),
+        Conv2D(24, (5, 5), activation='relu', strides=(2, 2)),
+        Conv2D(36, (5, 5), activation='relu', strides=(2, 2)),
+        Conv2D(48, (5, 5), activation='relu', strides=(2, 2)),
+        Conv2D(64, (3, 3), activation='relu', strides=(1, 1)),
+        Conv2D(64, (3, 3), activation='relu', strides=(1, 1)),
+        Dropout(0.5),
+        Flatten(),
+        Dense(100, activation='relu'),
+        Dense(50, activation='relu'),
+        Dense(10, activation='relu'),
+        Dense(1)
+    ])
+    model.summary()
     return model
