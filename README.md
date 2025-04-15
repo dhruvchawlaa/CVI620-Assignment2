@@ -25,7 +25,7 @@ This project develops a neural network model to control a self-driving car by pr
 
 ### Setup Instructions
 1. **Download Dataset**:
-   - Dataset available at: [https://mega.nz/file/7dIjyDBA#9V-wgafKWrL3vH-i3gmuRSIBxGdhR8m78qDKPIY8aVQ](https://mega.nz/file/7dIjyDBA#9V-wgafKWrL3vH-i3gmuRSIBxGdhR8m78qDKPIY8aVQ)
+   - Dataset available at: https://mega.nz/file/ScRwxIab#w6fcn1w8eQ2YUs8_cjoU5obIaVD-0iK5Mme2VZMWUjE
    
 2. **Create and Activate the Environment**:
    ```bash
