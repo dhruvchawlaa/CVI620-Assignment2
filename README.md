@@ -23,6 +23,6 @@ Final test run recording: [Demo](https://mega.nz/file/ecoXFD4Z#8CsLYbNvmYfeJGEgt
    ```bash
    python -m venv as2_venv
    # On Windows:
-   venv\Scripts\activate
+   .\as2_venv\Scripts\activate
    # On macOS/Linux:
    source as2_venv/bin/activate
