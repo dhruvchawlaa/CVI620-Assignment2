@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.image as mpimg
 
-IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 160, 320, 3
+IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 66, 200, 3
 INPUT_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
 
 def load_image(data_dir, image_file):
@@ -22,6 +22,7 @@ def rgb2yuv(image):
 def preprocess(image):
     image = crop(image)
     image = resize(image)
+    image = cv2.GaussianBlur(image, (3, 3), 0)
     image = rgb2yuv(image)
     return image
 
@@ -49,9 +50,14 @@ def random_translate(image, steering_angle, range_x=100, range_y=10):
     return image, steering_angle
 
 def random_shadow(image):
-    x1, y1 = IMAGE_WIDTH * np.random.rand(), 0
-    x2, y2 = IMAGE_WIDTH * np.random.rand(), IMAGE_HEIGHT
-    xm, ym = np.mgrid[0:IMAGE_HEIGHT, 0:IMAGE_WIDTH]
+    # Get actual image dimensions
+    height, width = image.shape[:2]
+    
+    # Generate coordinates based on actual size
+    x1, y1 = width * np.random.rand(), 0
+    x2, y2 = width * np.random.rand(), height
+    xm, ym = np.mgrid[0:height, 0:width]
+
     mask = np.zeros_like(image[:, :, 1])
     mask[(ym - y1) * (x2 - x1) - (y2 - y1) * (xm - x1) > 0] = 1
     cond = mask == np.random.randint(2)
@@ -66,16 +72,10 @@ def random_brightness(image):
     hsv[:, :, 2] = hsv[:, :, 2] * ratio
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
 
-def augment(data_dir, center, left, right, steering_angle, range_x=100, range_y=10):
-    """
-    Generate an augmented image, with bias toward right turns if steering is near zero.
-    """
-    # Increase chance of right-turn augmentation for straight driving
-    if abs(steering_angle) < 0.1 and np.random.rand() < 0.3:  # 30% chance for near-straight
-        image = load_image(data_dir, right)
-        steering_angle = steering_angle - 0.2  # Simulate right turn
-    else:
-        image, steering_angle = choose_image(data_dir, center, left, right, steering_angle)
+def augment(data_dir, center_path, steering_angle, range_x=100, range_y=10):
+    image = load_image(data_dir, center_path)
+    
+    # Apply augmentations
     image, steering_angle = random_flip(image, steering_angle)
     image, steering_angle = random_translate(image, steering_angle, range_x, range_y)
     image = random_shadow(image)
@@ -91,7 +91,7 @@ def batch_generator(data_dir, image_paths, steering_angles, batch_size, is_train
             center, left, right = image_paths[index]
             steering_angle = steering_angles[index]
             if is_training and np.random.rand() < 0.6:
-                image, steering_angle = augment(data_dir, center, left, right, steering_angle)
+                image, steering_angle = augment(data_dir, center, steering_angle)
             else:
                 image = load_image(data_dir, center)
             images[i] = preprocess(image)
